@@ -20,7 +20,7 @@ class Jupyter:
 
     def create_notebook(self, new_nb_name = "new_notebook.ipynb", sub_folder = "python-socketio/notebooks"):
         # create a new notebook 
-        
+
         create_url = os.path.join(self.CONTENT_URL, sub_folder)
 
         data = json.dumps({
@@ -28,7 +28,7 @@ class Jupyter:
         })
 
         response = requests.post(url = create_url, headers=self.headers, data=data)
-        
+        print('create', response)
         assert response.status_code == 201, 'Create notebook failed'
         new_notebook = response.json()
 
@@ -50,6 +50,7 @@ class Jupyter:
         read_url = os.path.join(self.CONTENT_URL, nb_path)
 
         response = requests.get(url = read_url, headers=self.headers)
+        print('read', response)
         assert response.status_code == 200, 'Read notebook failed'
         notebooks = response.json()
         return notebooks
@@ -65,9 +66,15 @@ class Jupyter:
         update_url = os.path.join(self.CONTENT_URL, nb_path)
 
         output_stream = io.StringIO()
-        with contextlib.redirect_stdout(output_stream):
-            exec(code)
-        output = output_stream.getvalue()
+        error_stream = io.StringIO()
+        with contextlib.redirect_stdout(output_stream), \
+            contextlib.redirect_stderr(error_stream):
+            try:
+                exec(code)
+            except Exception as e:
+                print(e)
+            output = output_stream.getvalue()
+            error = error_stream.getvalue()
 
         # https://nbformat.readthedocs.io/en/latest/format_description.html
         content = {"metadata": {
@@ -110,6 +117,7 @@ class Jupyter:
 
         response = requests.put(url = update_url, headers=self.headers, data = data)
         assert response.status_code == 200, 'Update notebook failed'
+        return output + error
 
     def delete_notebook(self, nb_name = "new_notebook.ipynb", sub_folder = "python-socketio/notebooks"):
         

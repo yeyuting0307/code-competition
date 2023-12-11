@@ -13,15 +13,22 @@
         function sendMessage() {
             var message = document.getElementById('inputCode').value;
             socket.send(message);
-            document.getElementById('inputCode').value = '';
+            // document.getElementById('inputCode').value = '';
             document.getElementById('messageBox').value = '';
         }
 
+        socket.on('read_code', function(data){
+            console.log('read_code from server:', data.data);
+            var inputCode = document.getElementById("inputCode");
+            inputCode.value = "";
+            inputCode.value += data.data + "\n";
+        });
         // 收到消息
         socket.on('response_message', function(data) {
             console.log('Message from server:', data.data);
 
             var messageBox = document.getElementById("messageBox");
+            messageBox.value = "";
             messageBox.value += data.data + "\n";
        
     });
@@ -40,12 +47,13 @@
         width: 100%;
         height: 50%;
         background-color: #eee;
-        
+        font-size: 16px;
     }
     #messageBox {
         width: 100%;
         height: 50%;
         background-color: #fff;
+        font-size: 16px;
     }
     #runCode {
         width: 80px;
