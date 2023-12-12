@@ -7,7 +7,7 @@ from hashlib import sha1
 import stat
 
 dotenv.load_dotenv()
-JUPYTER_TOKEN = os.environ.get("JUPYTER_NOTEBOOK_TOKEN", "")
+JUPYTER_TOKEN = os.environ.get("JUPYTER_NOTEBOOK_TOKEN", "a6401e9d5c188bfafca70669fcf6984a08fdeb7cd56d6a6c")
 
 app = Flask(__name__, template_folder = "templates")
 app.config['SECRET_KEY'] = 'secret!'

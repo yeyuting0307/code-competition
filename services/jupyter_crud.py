@@ -6,7 +6,10 @@ import requests
 import inspect
 import contextlib
 
-
+from .code_test import pass_cases
+from .cases.test1 import TestCase
+selected_test = TestCase()
+test_cases = selected_test.get_answers()
 class Jupyter:
     def __init__(self, jupyter_host = 'http://127.0.0.1:8888', jupyter_token = None):
 
@@ -64,17 +67,8 @@ class Jupyter:
         
         nb_path = os.path.join(sub_folder, nb_name)
         update_url = os.path.join(self.CONTENT_URL, nb_path)
-
-        output_stream = io.StringIO()
-        error_stream = io.StringIO()
-        with contextlib.redirect_stdout(output_stream), \
-            contextlib.redirect_stderr(error_stream):
-            try:
-                exec(code)
-            except Exception as e:
-                print(e)
-            output = output_stream.getvalue()
-            error = error_stream.getvalue()
+        
+        test_results = pass_cases(code, test_cases)
 
         # https://nbformat.readthedocs.io/en/latest/format_description.html
         content = {"metadata": {
@@ -103,7 +97,7 @@ class Jupyter:
                         {
                             "output_type": "stream",
                             "name": "stdout",  # or stderr
-                            "text": f"{output}",
+                            "text": f"{test_results}",
                         },
                     ]
                 }
@@ -117,7 +111,7 @@ class Jupyter:
 
         response = requests.put(url = update_url, headers=self.headers, data = data)
         assert response.status_code == 200, 'Update notebook failed'
-        return output + error
+        return test_results
 
     def delete_notebook(self, nb_name = "new_notebook.ipynb", sub_folder = "python-socketio/notebooks"):
         
