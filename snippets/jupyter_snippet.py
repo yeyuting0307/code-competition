@@ -7,21 +7,25 @@ import inspect
 import contextlib
 
 #%%
+
 # https://docs.qubole.com/en/latest/rest-api/jupy-notebook-api/index.html
 jupyter_host = 'http://localhost:8888'
 session_path = 'api/sessions'
 content_path = "api/contents"
+kernel_path = "api/kernels"
+command_path = "api/commands"
 
-SESSION_URL = os.path.join(jupyter_host, session_path)
+COMMAND_URL = os.path.join(jupyter_host, command_path)
 CONTENT_URL = os.path.join(jupyter_host, content_path)
-
-headers = {'Authorization' : "Token 9c0aaaef812bf4be4d6d6f76bf64a8a1e497119e4d3ec57d"}
+KERNEL_URL = os.path.join(jupyter_host, kernel_path)
+SESSION_URL = os.path.join(jupyter_host, session_path)
+headers = {'Authorization' : "Token 060c4a8ca6a463676e662362eebe510fe7f0dfa941953b70"}
 
 #%%
 # ------------------ Create ------------------
 # create a new notebook 
 new_nb_name = "new_notebook.ipynb"
-sub_folder = "Documents/python-socketio"
+sub_folder = "python-socketio"
 
 create_url = os.path.join(CONTENT_URL, sub_folder)
 
@@ -47,7 +51,7 @@ new_notebook
 #%%
 # ------------------ Read ------------------
 nb_name = "new_notebook.ipynb"
-sub_folder = "Documents/python-socketio"
+sub_folder = "python-socketio"
 nb_path = os.path.join(sub_folder, nb_name)
 read_url = os.path.join(CONTENT_URL, nb_path)
 
@@ -56,10 +60,11 @@ assert response.status_code == 200, 'Read notebook failed'
 notebooks = response.json()
 notebooks
 
+
 # %%
 # ------------------ Update ------------------
 nb_name = "new_notebook.ipynb"
-sub_folder = "Documents/python-socketio"
+sub_folder = "python-socketio"
 nb_path = os.path.join(sub_folder, nb_name)
 update_url = os.path.join(CONTENT_URL, nb_path)
 
@@ -85,8 +90,8 @@ output = output_stream.getvalue()
 # https://nbformat.readthedocs.io/en/latest/format_description.html
 content = {"metadata": {
         "kernelspec": {
-            "name": "sparkkernel", 
-            "display_name": "Spark", 
+            "name": "python3", 
+            "display_name": "Python3", 
             "language": "python"
         },
         "language_info": {
@@ -124,11 +129,55 @@ data = json.dumps({
 response = requests.put(url = update_url, headers=headers, data = data)
 assert response.status_code == 200, 'Update notebook failed'
 
+#%%
+# ------------------ Get Kernel ------------------
+response = requests.get(url = KERNEL_URL, headers=headers)
+assert response.status_code == 200, 'Get Kernel failed'
+kernels = response.json()
+kernels
 
+#%%
+data = {
+    "name" : "python3",
+    "path" : "/usr/local/bin/python3"
+}
+response = requests.post(url = KERNEL_URL, headers = headers, json = data)
+response
+assert response.status_code == 201, 'Create Kernel failed'
+kernels = response.json()
+kernels
+#%%
+# ------------------ Get Session ------------------
+# TODO:
+requests.post(url = SESSION_URL, headers=headers)
+
+
+
+#%%
+# ------------------ Execute ------------------
+# nb_name = "new_notebook.ipynb"
+# sub_folder = "python-socketio"
+# nb_path = os.path.join(sub_folder, nb_name)
+# data = {
+#     "path": nb_path, 
+#     "command_type":"JupyterNotebookCommand",  
+#     "label":"python3", 
+#     "arguments": {"key1":"value1", "key2":"value2"},
+#     "upload_to_source" : True
+# }
+# print(COMMAND_URL)
+# response = requests.post(COMMAND_URL, headers=headers, json=data)
+# print(response)
+# assert response.status_code == 200, 'Exec notebook failed'
+
+
+
+
+#%%
 # %%
 # ------------------ Delete ------------------
 nb_name = "new_notebook.ipynb"
-sub_folder = "Documents/python-socketio"
+sub_folder = "python-socketio"
 nb_path = os.path.join(sub_folder, nb_name)
 delete_url = os.path.join(CONTENT_URL, nb_path)
 

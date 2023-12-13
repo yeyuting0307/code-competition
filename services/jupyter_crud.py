@@ -11,6 +11,9 @@ from .cases.test1 import TestCase
 selected_test = TestCase()
 test_cases = selected_test.get_answers()
 class Jupyter:
+    ''' 
+    https://jupyter-server.readthedocs.io/en/latest/developers/rest-api.html
+    '''
     def __init__(self, jupyter_host = 'http://127.0.0.1:8888', jupyter_token = None):
 
         session_path = 'api/sessions'
