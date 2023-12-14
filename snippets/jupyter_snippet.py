@@ -9,17 +9,25 @@ import contextlib
 #%%
 
 # https://docs.qubole.com/en/latest/rest-api/jupy-notebook-api/index.html
+
 jupyter_host = 'http://localhost:8888'
+jupyter_websocket_host = 'ws://localhost:8888'
+token = "060c4a8ca6a463676e662362eebe510fe7f0dfa941953b70"
+
+headers = {
+    'Authorization' : f"Token {token}"
+}
+
+
 session_path = 'api/sessions'
 content_path = "api/contents"
 kernel_path = "api/kernels"
-command_path = "api/commands"
 
-COMMAND_URL = os.path.join(jupyter_host, command_path)
+COMMAND_URL = os.path.join(jupyter_websocket_host, kernel_path)
 CONTENT_URL = os.path.join(jupyter_host, content_path)
 KERNEL_URL = os.path.join(jupyter_host, kernel_path)
 SESSION_URL = os.path.join(jupyter_host, session_path)
-headers = {'Authorization' : "Token 060c4a8ca6a463676e662362eebe510fe7f0dfa941953b70"}
+
 
 #%%
 # ------------------ Create ------------------
@@ -27,27 +35,30 @@ headers = {'Authorization' : "Token 060c4a8ca6a463676e662362eebe510fe7f0dfa94195
 new_nb_name = "new_notebook.ipynb"
 sub_folder = "python-socketio"
 
-create_url = os.path.join(CONTENT_URL, sub_folder)
+if not os.path.exists(os.path.join('..','..', sub_folder, new_nb_name)):
 
-data = json.dumps({
-    "type": "notebook"
-})
+    create_url = os.path.join(CONTENT_URL, sub_folder)
 
-response = requests.post(url = create_url, headers=headers, data=data)
-assert response.status_code == 201, 'Create notebook failed'
-new_notebook = response.json()
+    data = json.dumps({
+        "type": "notebook"
+    })
 
-# rename a notebook
-default_nb_name = new_notebook.get('name')
-new_nb_path = os.path.join(sub_folder, new_nb_name)
-rename_url = os.path.join(CONTENT_URL, sub_folder, default_nb_name)
+    response = requests.post(url = create_url, headers=headers, data=data)
+    assert response.status_code == 201, 'Create notebook failed'
+    new_notebook = response.json()
 
-data=json.dumps({"path" : new_nb_path})
-response = requests.patch(url = rename_url, headers=headers, data=data)
-assert response.status_code == 200, 'Rename failed, either old_nb not existed or new_nb already existed'
-new_notebook = response.json()
-new_notebook
+    # rename a notebook
+    default_nb_name = new_notebook.get('name')
+    new_nb_path = os.path.join(sub_folder, new_nb_name)
+    rename_url = os.path.join(CONTENT_URL, sub_folder, default_nb_name)
 
+    data=json.dumps({"path" : new_nb_path})
+    response = requests.patch(url = rename_url, headers=headers, data=data)
+    assert response.status_code == 200, 'Rename failed, either old_nb not existed or new_nb already existed'
+    new_notebook = response.json()
+    new_notebook
+else:
+    print('Notebook already existed')
 #%%
 # ------------------ Read ------------------
 nb_name = "new_notebook.ipynb"
@@ -130,13 +141,8 @@ response = requests.put(url = update_url, headers=headers, data = data)
 assert response.status_code == 200, 'Update notebook failed'
 
 #%%
-# ------------------ Get Kernel ------------------
-response = requests.get(url = KERNEL_URL, headers=headers)
-assert response.status_code == 200, 'Get Kernel failed'
-kernels = response.json()
-kernels
 
-#%%
+# ------------------ Create Kernel ------------------
 data = {
     "name" : "python3",
     "path" : "/usr/local/bin/python3"
@@ -146,32 +152,76 @@ response
 assert response.status_code == 201, 'Create Kernel failed'
 kernels = response.json()
 kernels
+
+#%%
+# ------------------ Get Kernel ------------------
+response = requests.get(url = KERNEL_URL, headers=headers)
+assert response.status_code == 200, 'Get Kernel failed'
+kernels = response.json()
+print(kernels)
+
+latest_kernel = kernels[-1] if kernels else None
+latest_kernel
+
+
+#%%
+# ------------------ Create Session ------------------
+import uuid
+data = {
+    "id" : uuid.uuid1().hex,
+    "kernel" : latest_kernel,
+    "name" : uuid.uuid1().hex,
+    "path" : os.path.join("..", "..",notebooks.get('path')),
+    "type" : "notebook"
+}
+response = requests.post(url = SESSION_URL, headers=headers, json=data)
+assert response.status_code == 201, 'Create Session failed'
+new_session = response.json()
+new_session
+
 #%%
 # ------------------ Get Session ------------------
-# TODO:
-requests.post(url = SESSION_URL, headers=headers)
+response = requests.get(url = SESSION_URL, headers=headers)
+assert response.status_code == 200, 'Get Session failed'
+sessions = response.json()
+print(sessions)
 
-
+latest_session = sessions[-1] if sessions else None
+latest_session
 
 #%%
-# ------------------ Execute ------------------
-# nb_name = "new_notebook.ipynb"
-# sub_folder = "python-socketio"
-# nb_path = os.path.join(sub_folder, nb_name)
-# data = {
-#     "path": nb_path, 
-#     "command_type":"JupyterNotebookCommand",  
-#     "label":"python3", 
-#     "arguments": {"key1":"value1", "key2":"value2"},
-#     "upload_to_source" : True
-# }
-# print(COMMAND_URL)
-# response = requests.post(COMMAND_URL, headers=headers, json=data)
-# print(response)
-# assert response.status_code == 200, 'Exec notebook failed'
+# ------------------ Run Session ------------------
 
+from websocket import create_connection
 
+session_id =  latest_session.get('id')
+kernel_id = latest_session.get('kernel').get('id')
 
+ws_url = os.path.join(COMMAND_URL, kernel_id, f"channels?session_id={session_id}")
+print(ws_url)
+
+ws = create_connection(
+    url = ws_url, 
+    headers = headers
+)
+ws
+
+#%%
+# https://stackoverflow.com/questions/54475896/interact-with-jupyter-notebooks-via-api
+import datetime
+def send_execute_request(code):
+    msg_type = 'execute_request'
+    content = { 'code' : code, 'silent':False }
+    hdr = { 'msg_id' : uuid.uuid1().hex, 
+        'username': 'test', 
+        'session': uuid.uuid1().hex, 
+        'data': datetime.datetime.now().isoformat(),
+        'msg_type': msg_type,
+        'version' : '5.0' }
+    msg = { 'header': hdr, 'parent_header': hdr, 
+        'metadata': {},
+        'content': content }
+    return msg
 
 #%%
 # %%
