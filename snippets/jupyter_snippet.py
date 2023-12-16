@@ -31,7 +31,7 @@ SESSION_URL = os.path.join(jupyter_host, session_path)
 
 #%%
 # ------------------ Create ------------------
-# create a new notebook 
+# # create a new notebook 
 new_nb_name = "new_notebook.ipynb"
 sub_folder = "python-socketio"
 
@@ -93,10 +93,10 @@ for i in range(1, 30):
     print(i, fn(i))
 '''
 
-output_stream = io.StringIO()
-with contextlib.redirect_stdout(output_stream):
-    exec(code)
-output = output_stream.getvalue()
+# output_stream = io.StringIO()
+# with contextlib.redirect_stdout(output_stream):
+#     exec(code)
+# output = output_stream.getvalue()
 
 # https://nbformat.readthedocs.io/en/latest/format_description.html
 content = {"metadata": {
@@ -125,7 +125,7 @@ content = {"metadata": {
                 {
                     "output_type": "stream",
                     "name": "stdout",  # or stderr
-                    "text": f"{output}",
+                    "text": f"", # output
                 },
             ]
         }
@@ -145,7 +145,7 @@ assert response.status_code == 200, 'Update notebook failed'
 # ------------------ Create Kernel ------------------
 data = {
     "name" : "python3",
-    "path" : "/usr/local/bin/python3"
+    "path" : "/Users/mike/miniconda/envs/socketio/bin/python" #"/usr/local/bin/python3"
 }
 response = requests.post(url = KERNEL_URL, headers = headers, json = data)
 response
@@ -163,7 +163,16 @@ print(kernels)
 latest_kernel = kernels[-1] if kernels else None
 latest_kernel
 
+#%%
+# ------------------ Delete Kernel ------------------
+old_kernel_ids = [k['id'] for k in kernels if k != latest_kernel]
 
+for kid in old_kernel_ids:
+    delete_url = os.path.join(KERNEL_URL, kid)
+    response = requests.delete(url = delete_url, headers=headers)
+    assert response.status_code == 204, 'Delete Kernel failed'
+    print(f"Delete kernel {kid} successfully")
+latest_kernel
 #%%
 # ------------------ Create Session ------------------
 import uuid
@@ -197,14 +206,14 @@ from websocket import create_connection
 session_id =  latest_session.get('id')
 kernel_id = latest_session.get('kernel').get('id')
 
-ws_url = os.path.join(COMMAND_URL, kernel_id, f"channels?session_id={session_id}")
+ws_url = os.path.join(COMMAND_URL, kernel_id, f"channels?session_id={session_id}&token={token}")
 print(ws_url)
 
 ws = create_connection(
     url = ws_url, 
     headers = headers
 )
-ws
+print(ws)
 
 #%%
 # https://stackoverflow.com/questions/54475896/interact-with-jupyter-notebooks-via-api
@@ -218,18 +227,67 @@ def send_execute_request(code):
         'data': datetime.datetime.now().isoformat(),
         'msg_type': msg_type,
         'version' : '5.0' }
-    msg = { 'header': hdr, 'parent_header': hdr, 
-        'metadata': {},
-        'content': content }
+    msg = {   
+        "header": hdr,
+        "parent_header": hdr,
+        "metadata": {},
+        "content": content,
+        "channel" : "shell" # shell, iopub
+    }
     return msg
 
 #%%
+code = f'''
+def fn(n):
+    if n == 1:
+        return 1
+    if n == 2:
+        return 1
+    return fn(n-1) + fn(n-2)
+'''
+test_codes = [
+    "print(fn(10))",
+    "print(fn(20))",
+    "print(fn(30))",
+    "print(fn(40))",
+]
+
+
+#%%
+import time
+exec_code = f''' 
+{code}
+{test_codes[0]}
+'''
+exec_req = send_execute_request(exec_code)
+ws.send(json.dumps(exec_req))
+S = time.time()
+while True:
+    response = ws.recv()
+    data_json = json.loads(response)
+    msg_type = data_json.get('msg_type')
+    E = time.time()
+    if E-S > 10:
+        print('Timeout')
+        break
+    if msg_type == 'status':
+        pass
+    elif msg_type == 'execute_input':
+        inpur_code = data_json.get('content', {}).get('code', "")
+        print(f"[{E-S :.2f}s]",inpur_code)
+    elif msg_type == 'stream':
+        print(f"[{E-S : .2f}s]",data_json.get('content', {}).get('text'))
+        break
+    else:
+        print(data_json)
+
+
 # %%
 # ------------------ Delete ------------------
-nb_name = "new_notebook.ipynb"
-sub_folder = "python-socketio"
-nb_path = os.path.join(sub_folder, nb_name)
-delete_url = os.path.join(CONTENT_URL, nb_path)
+# nb_name = "new_notebook.ipynb"
+# sub_folder = "python-socketio"
+# nb_path = os.path.join(sub_folder, nb_name)
+# delete_url = os.path.join(CONTENT_URL, nb_path)
 
-response = requests.delete(url = delete_url, headers=headers)
-assert response.status_code == 204, 'Delete notebook failed'
+# response = requests.delete(url = delete_url, headers=headers)
+# assert response.status_code == 204, 'Delete notebook failed'

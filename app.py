@@ -49,6 +49,7 @@ def handle_disconnect():
 
 @socketio.on('message')
 def handle_message(message):
+    
     # TODO: update notebook
     print('received message: ' + message)
     cookie = list(request.cookies.to_dict().values())[0]
