@@ -9,12 +9,12 @@ class TestCase:
         self.cache[x] = self.fn(x-1) + self.fn(x-2)
         return self.cache[x]
     
-    def get_answers(self):
+    def gen_test_case(self):
         random.seed(20231212)
-        inputs = list(range(1, 20))
+        inputs = list(range(1, 40))
         random.shuffle(inputs)
-        ans = []
+        cases = []
         for i in inputs:
-            ans.append((i, self.fn(i)))
-        return ans
+            cases.append((i, self.fn(i)))
+        return cases
 

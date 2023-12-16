@@ -255,33 +255,36 @@ test_codes = [
 
 #%%
 import time
-exec_code = f''' 
+
+for test_code in test_codes:
+    exec_code = f''' 
 {code}
-{test_codes[0]}
+{test_code}
 '''
-exec_req = send_execute_request(exec_code)
-ws.send(json.dumps(exec_req))
-S = time.time()
-while True:
-    response = ws.recv()
-    data_json = json.loads(response)
-    msg_type = data_json.get('msg_type')
-    E = time.time()
-    if E-S > 10:
-        print('Timeout')
-        break
-    if msg_type == 'status':
-        pass
-    elif msg_type == 'execute_input':
-        inpur_code = data_json.get('content', {}).get('code', "")
-        print(f"[{E-S :.2f}s]",inpur_code)
-    elif msg_type == 'stream':
-        print(f"[{E-S : .2f}s]",data_json.get('content', {}).get('text'))
-        break
-    else:
-        print(data_json)
-
-
+    exec_req = send_execute_request(exec_code)
+    ws.send(json.dumps(exec_req))
+    S = time.time()
+    while True:
+        response = ws.recv()
+        data_json = json.loads(response)
+        msg_type = data_json.get('msg_type')
+        E = time.time()
+        if E-S > 10:
+            print('Timeout')
+            break
+        if msg_type == 'status':
+            pass
+        elif msg_type == 'execute_input':
+            inpur_code = data_json.get('content', {}).get('code', "")
+            print(f"[{E-S :.2f}s]",inpur_code)
+        elif msg_type == 'stream':
+            print(f"[{E-S : .2f}s]",data_json.get('content', {}).get('text'))
+            break
+        else:
+            print(data_json)
+#%%
+response = ws.recv()
+json.loads(response)
 # %%
 # ------------------ Delete ------------------
 # nb_name = "new_notebook.ipynb"

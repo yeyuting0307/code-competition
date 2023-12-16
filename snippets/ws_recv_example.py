@@ -1,4 +1,4 @@
-
+#%%
 ''' 
 {'header': {'msg_id': '28c543d6-09aeddee49be8401c1ec1bb8_27185_22',
   'msg_type': 'status',
@@ -20,6 +20,29 @@
  'buffers': [],
  'channel': 'iopub'}
 '''
+
+''' 
+{'header': {'msg_id': '28c543d6-09aeddee49be8401c1ec1bb8_27185_146',
+  'msg_type': 'status',
+  'username': 'mike',
+  'session': '28c543d6-09aeddee49be8401c1ec1bb8',
+  'date': '2023-12-16T09:46:06.530310Z',
+  'version': '5.3'},
+ 'msg_id': '28c543d6-09aeddee49be8401c1ec1bb8_27185_146',
+ 'msg_type': 'status',
+ 'parent_header': {'msg_id': 'ef11a7ec9bf711ee9df446bdd3f2945d',
+  'username': 'test',
+  'session': 'ef11a8969bf711ee9df446bdd3f2945d',
+  'data': '2023-12-16T17:46:06.520339+08:00',
+  'msg_type': 'execute_request',
+  'version': '5.0',
+  'date': '2023-12-16T09:46:06.524386Z'},
+ 'metadata': {},
+ 'content': {'execution_state': 'idle'},
+ 'buffers': [],
+ 'channel': 'iopub'}
+'''
+
 
 ''' 
 {'header': {'msg_id': '28c543d6-09aeddee49be8401c1ec1bb8_27185_23',
@@ -66,3 +89,5 @@
  'buffers': [],
  'channel': 'iopub'}
 '''
+
+# %%
