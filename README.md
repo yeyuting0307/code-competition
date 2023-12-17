@@ -46,9 +46,9 @@ python app.py
 ---
 
 ## Reference
+- [ChatGPT](https://chat.openai.com)
 - [Jupyter Notebook Server API](https://github.com/jupyter/jupyter/wiki/Jupyter-Notebook-Server-API)
 - [WebSocket kernel wire protocols](https://jupyter-server.readthedocs.io/en/latest/developers/websocket-protocols.html)
-- [ChatGPT](https://chat.openai.com)
 - [使用 Flask-SocketIO 完成 WebSocket 雙向通訊](https://medium.com/@charming_rust_oyster_221/使用-flask-socketio-完成-websocket-雙向通訊-49fd734f52ae)
 
 ---
