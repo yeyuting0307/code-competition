@@ -3,23 +3,27 @@ import time
 import stat
 import dotenv
 import uuid
+import asyncio
 from hashlib import sha1
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
 from services.jupyter_conn import Jupyter
 from code_cases.fibonacci import TestCase
 
+# Global Env
 dotenv.load_dotenv()
-JUPYTER_TOKEN = os.environ.get("JUPYTER_NOTEBOOK_TOKEN", "060c4a8ca6a463676e662362eebe510fe7f0dfa941953b70")
-JUPYTER_TOKEN = "060c4a8ca6a463676e662362eebe510fe7f0dfa941953b70"
+JUPYTER_TOKEN = os.environ.get("JUPYTER_NOTEBOOK_TOKEN")
+assert JUPYTER_TOKEN is not None, "Please set JUPYTER_NOTEBOOK_TOKEN in .env file and restart the server"
+
+# Flask Socketio
 app = Flask(__name__, template_folder = "templates")
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
 jupyter = Jupyter(jupyter_token=JUPYTER_TOKEN)
-cache = {}
 
+# Cache and Test Cases
+cache = {}
 test_cases = TestCase().gen_test_case()
-print('test_cases', test_cases)
 
 @app.route('/')
 def index():
@@ -27,23 +31,24 @@ def index():
 
 @socketio.on('connect')
 def handle_connect():
-    print('cache', cache)
     print('Client connected 😀')
 
+    # handle cookie
     cookie = list(request.cookies.to_dict().values())[0]
     if cookie not in cache:
+        # assign notebook name to user
         nb_name = f"{sha1(cookie.encode()).hexdigest()}.ipynb"
         cache[cookie] = {"nb_name" : nb_name}
 
+        # create notebook for user
         if os.path.exists(os.path.join("notebooks", nb_name)):
             print(f"{nb_name} existed!")
         else:
             jupyter.create_notebook(new_nb_name=nb_name)
             os.chmod(os.path.join("notebooks", nb_name), stat.S_IRWXU)
-    print('cookie: ', cache[cookie])
 
+    # read code from notebook
     cookie_nb = jupyter.read_notebook(nb_name=cache[cookie].get("nb_name"))
-    print(cookie_nb)
     cells = cookie_nb.get('content', {}).get('cells', [])
     source, output = "", ""
     if cells != []:
@@ -55,12 +60,33 @@ def handle_connect():
 
 @socketio.on('disconnect')
 def handle_disconnect():
+    cookie = list(request.cookies.to_dict().values())[0]
+    
+    ## delete kernel
+    kernel = cache[cookie].get('kernel')
+    if kernel is not None:
+        kernel_id = kernel.get('id')
+        try:
+            jupyter.delete_kernel(kernel_id)
+            del cache[cookie]['kernel']
+        except Exception as e:
+            print(e)
+    
+    ## delete session
+    session = cache[cookie].get('session')
+    if session is None:
+        session_id = session.get('id')
+        try:
+            jupyter.delete_session(session_id)
+            del cache[cookie]['session']
+        except Exception as e:
+            print(e)
+
     print('Client disconnected 🥲')
 
 
 @socketio.on('message')
 def handle_message(message):
-    print('received message: ' + message)
     cookie = list(request.cookies.to_dict().values())[0]
     nb_name = cache[cookie].get("nb_name")
 
@@ -69,14 +95,12 @@ def handle_message(message):
         nb_name = nb_name,
         input_code = message
     )
-    print("update_notebook", message)
 
     ## get or create kernel for user
     kernel = cache[cookie].get('kernel')
     if kernel is None:
         kernel = jupyter.create_kernel()
         cache[cookie]['kernel'] = kernel
-    print("kernel", kernel)
 
     ## get or create session for user
     session = cache[cookie].get('session')
@@ -84,13 +108,11 @@ def handle_message(message):
         session = jupyter.create_session(
             kernel=kernel, notebook_path=nb_name)
         cache[cookie]['session'] = session
-    print("session", session)
 
     ## create ws connection
     session_id = session.get('id')
     kernel_id = kernel.get('id')
     ws = jupyter.websocket_connect(session_id, kernel_id)
-    print("ws", ws)
 
     ## exec code and test result
     user_code = message
@@ -99,20 +121,21 @@ def handle_message(message):
     pass_count = 0
 
     for idx, (fn_input, correct_answer) in enumerate(test_cases):
-        
-        test_input = f"print(fn({fn_input}))"
+        # Prepare Test Code for python
+        test_input = f"""print(fn({fn_input}))"""
         run_code = f"""# Run Test 
 {user_code}
 {test_input}
 """
-        print("correct_map", correct_map)
+        # Record Test Result
         msg_id = uuid.uuid1().hex
-        print("< msg_id >", msg_id)
         correct_map.update({msg_id: correct_answer})
+
+        # Send code to jupyter kernel
         jupyter.ws_send_exec_code(ws, run_code, msg_id = msg_id)
 
+        # Receive result from jupyter kernel
         ans_object = jupyter.ws_recv_exec_result(ws)
-        print("ans_object", ans_object)
         if ans_object.get('type') == "timeout":
             user_answer = "Exceed Timeout"
             code_msg_id = ans_object\
@@ -127,32 +150,31 @@ def handle_message(message):
                 .get('content', {})\
                 .get('text', '').strip()
         
-        print("< code_msg_id >", code_msg_id)
+        # Check answer and make evaluation text
         check_correct_answer = correct_map.get(code_msg_id)
-
-        print(f"{user_answer} vs {check_correct_answer}")
-        
         if str(user_answer) == str(check_correct_answer):
-            eval_text += f"[🟢] Test_{idx+1:03d}\n\t"
+            eval_text += f"[🟢] Test{idx+1:03d}\n\t"
             pass_count += 1
         else:
-            eval_text += f"[🔴] Test_{idx+1:03d}\n\t"
+            eval_text += f"[🔴] Test{idx+1:03d}\n\t"
 
         eval_text += f"Input: {fn_input}  "+ \
                     f"Output: {user_answer}  "+ \
-                    f"Expected: {correct_answer}\n"
-
+                    f"Expected: {correct_answer}\n" +\
+                    "="*40 + "\n"
+        
     eval_text = f"Total Pass: {pass_count} / {len(test_cases)} " \
                 + f"{'🎉' if pass_count == len(test_cases) else '🤔'}\n"\
-                + "="*30 + "\n" + eval_text
-    ## update notebook output block
+                + "="*40 + "\n" + eval_text 
+    
+    # Record evaluation in notebook output block
     jupyter.update_notebook(
         nb_name = nb_name,
         input_code = message,
         output_text = eval_text
     )
 
-    ## show output to user
+    # show output to user
     emit('response_message', {'data': eval_text})
 
 if __name__ == '__main__':
