@@ -34,7 +34,7 @@ class Jupyter:
 
         self.headers = {'Authorization' : f"Token {jupyter_token}"}
         self.curr_kernel_id = None
-    def create_notebook(self, new_nb_name = "new_notebook.ipynb", sub_folder = "python-socketio/notebooks"):
+    def create_notebook(self, new_nb_name = "new_notebook.ipynb", sub_folder = "code-competition/notebooks"):
         # create a new notebook 
 
         create_url = os.path.join(self.CONTENT_URL, sub_folder)
@@ -60,13 +60,10 @@ class Jupyter:
 
         return new_notebook
 
-    def read_notebook(self, nb_name = "new_notebook.ipynb", sub_folder = "python-socketio/notebooks"):
-        
+    def read_notebook(self, nb_name = "new_notebook.ipynb", sub_folder = "code-competition/notebooks"):
         nb_path = os.path.join(sub_folder, nb_name)
         read_url = os.path.join(self.CONTENT_URL, nb_path)
-
         response = requests.get(url = read_url, headers=self.headers)
-        print('read', response)
         assert response.status_code == 200, 'Read notebook failed'
         notebooks = response.json()
         return notebooks
@@ -76,7 +73,7 @@ class Jupyter:
             input_code = "",
             output_text = "",
             nb_name = "new_notebook.ipynb",
-            sub_folder = "python-socketio/notebooks",
+            sub_folder = "code-competition/notebooks",
         ):
         
         nb_path = os.path.join(sub_folder, nb_name)
@@ -125,7 +122,7 @@ class Jupyter:
         assert response.status_code == 200, 'Update notebook failed'
         return response
 
-    def delete_notebook(self, nb_name , sub_folder = "python-socketio/notebooks"):
+    def delete_notebook(self, nb_name , sub_folder = "code-competition/notebooks"):
         
         nb_path = os.path.join(sub_folder, nb_name)
         delete_url = os.path.join(self.CONTENT_URL, nb_path)
@@ -179,6 +176,12 @@ class Jupyter:
         assert response.status_code == 200, 'Get Session failed'
         sessions = response.json()
         return sessions
+
+    def delete_session(self, session_id):
+        delete_url = os.path.join(self.SESSION_URL, session_id)
+        response = requests.delete(url = delete_url, headers=self.headers)
+        assert response.status_code == 204, 'Delete Session failed'
+        return response
     
     def websocket_connect(self, session_id, kernel_id):
         ws_url = os.path.join(
@@ -235,21 +238,14 @@ class Jupyter:
                     "type" : "timeout",
                     "code_result" : data_json
                 })
-                try:
-                    print(f"Try to interrupt: {self.curr_kernel_id}")
-                    self.interrupt_kernel(self.curr_kernel_id)
-                except Exception as e:
-                    print(f"Intterupt Fail with {self.curr_kernel_id}:{e}")
                 break
             if msg_type == 'status':
                 status = data_json.get('content', {}).get('execution_state') # idle, busy, ...
                 if status == "idle":
-                    print("Finished")
                     pass
                 elif status == "busy":
                     pass
             elif msg_type == 'execute_input':
-                # S = time.time() # reset timer is for fair
                 input_code = data_json\
                     .get('content', {})\
                     .get('code', "")
