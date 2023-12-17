@@ -4,3 +4,4 @@ reference
 .DS_Store
 __pycache__
 .env
+notebooks/*
